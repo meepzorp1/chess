@@ -1,0 +1,47 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+path {
+    z-index: 1;
+}
+svg {
+    z-index: 1;
+    width: 85%;
+    height: 75%;
+}
+#board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    width: 50vw;
+    height: 50vw;
+    margin: 0 auto;
+}
+#message {
+    font-size: 2em;
+    margin: 0 auto;
+    top: 30%;
+    text-align: center;
+
+}
+.black {
+    background-color: rgba(30, 20, 10, 0.9);
+}
+.white {
+    background-color: rgb(91, 62, 30, 0.9);
+}
+.cell {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.highlight {
+    background-color: rgba(50, 100, 150, 1);
+}
+.piece {
+    z-index: 10;
+}
