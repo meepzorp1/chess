@@ -1,195 +1,192 @@
-const board = [];
-const WIDTH = 8, HEIGHT = 8;
-const boardE = document.getElementById('board');
-const message = document.getElementById('message');
+//Board legend
+// 0: empty square
+// 1: piece
+// 2: moves
 
-let turn = 'white';
 
-const drawBoard = (board) => {
-    let boardHTML = '';
-    for (let i = 0; i < HEIGHT; i++) {
-        board[i] = [];                                              // Create 2nd dimension for each row
-        for (let j = 0; j < WIDTH; j++) {
-            board[i][j] = '';                                       
-            const element = document.createElement('div');            // Create a div element for each cell
-            element.classList.add('cell');              
-            (j + i) % 2 ? element.classList.add('black') : element.classList.add('white');  
-            element.dataset.row = i;  // Add row and column data attributes
-            element.dataset.col = j;
-            console.log(element);
-            element.addEventListener('click', cellClick, false);           // Add click event listener
-            boardE.appendChild(element);                            // Add cell to the board
-            console.log(boardE);
+const board = document.querySelector('.board');
+const boardArray = [];
+const blackPieces = [];
+const whitePieces = [];
+let blackMoves = 0;
+let moveFrom, moveTo;
+whoseTurn = 'white';
+
+// Function to create a piece element
+const createPieceElement = (piece, color, row, col) => {
+    const pieceElement = document.createElement('div');
+    pieceElement.innerHTML = piece;
+    pieceElement.firstChild.dataset.color = color;
+    pieceElement.firstChild.dataset.row = row;
+    pieceElement.firstChild.dataset.column = col; 
+    pieceElement.firstChild.classList.add(color);
+    return pieceElement.firstChild;
+};
+
+// Fill the board with pieces
+const fillBoard = () => {
+    for (let i = 0; i < 8; i++) {
+        boardArray[i] = [];
+        blackPieces[i] = [];
+        whitePieces[i] = [];
+        for (let j = 0; j < 8; j++) {
+            const square = document.createElement('div');
+            square.classList.add('square');
+            (i + j) % 2 === 0? square.classList.add('board__square--white'): square.classList.add('board__square--black');
+            square.dataset.row = i;
+            square.dataset.column = j;
+            board.appendChild(square);
+            boardArray[i][j] = 0;
+            blackPieces[i][j] = 0;
+            whitePieces[i][j] = 0;
+
+            // Place pawns
+            if (i === 1) {
+                const pieceElement = createPieceElement(pawn, 'black', i, j);
+                square.appendChild(pieceElement);
+                blackPieces[i][j] = 1;
+            } else if (i === 6) {
+                const pieceElement = createPieceElement(pawn, 'white', i, j);
+                square.appendChild(pieceElement);
+                whitePieces[i][j] = 1;
+            }
+
+            // Place rooks, knights, bishops, queens, and kings
+            if (i === 0 || i === 7) {
+                const color = i === 0 ? 'black' : 'white';
+                let piece;
+                switch (j) {
+                    case 0:
+                    case 7:
+                        piece = rook;
+                        break;
+                    case 1:
+                    case 6:
+                        piece = knight;
+                        break;
+                    case 2:
+                    case 5:
+                        piece = bishop;
+                        break;
+                    case 3:
+                        piece = color === 'white' ? queen : king;
+                        break;
+                    case 4:
+                        piece = color === 'white' ? king : queen;
+                        break;
+                }
+                const pieceElement = createPieceElement(piece, color);
+                square.appendChild(pieceElement);
+                boardArray[i][j] = pieceElement;
+                i === 0 ? blackPieces[i][j] = 1 : whitePieces[i][j] = 1;
+            }
         }
     }
-}
-const placePieces = () => {
-    const pawnCells = document.querySelectorAll(".cell[data-row='1'], .cell[data-row='6']");
-    pawnCells.forEach((cell, index) => {
-        cell.innerHTML = pawn;                                      // Add pawns to the board
-    });
-    const homeRows = document.querySelectorAll(".cell[data-row='0'], .cell[data-row='7']");
-    homeRows.forEach((cell, index) => {
-                                                                    // Add pieces to the board
-        if (index === 0 || index === 7 || index === 8 || index === 15) {
-            cell.innerHTML = rook;
-        } else if (index === 1 || index === 6 || index === 9 || index === 14) {
-            cell.innerHTML = knight;
-        } else if (index === 2 || index === 5 || index === 10 || index === 13) {
-            cell.innerHTML = bishop;
-        } else if (index === 3 || index === 11) {
-            cell.innerHTML = queen;
-        } else {
-            cell.innerHTML = king;
-        }
-    });
-    const whiteRows = document.querySelectorAll(".cell[data-row='0'] svg, .cell[data-row='1'] svg");    // Fill white pieces
-    whiteRows.forEach((cell, index) => {
-        cell.setAttribute('fill', '#bbb');
-    });
-    const blackRows = document.querySelectorAll(".cell[data-row='6'] svg, .cell[data-row='7'] svg");    // Fill black pieces
-    blackRows.forEach((cell, index) => {
-        cell.setAttribute('fill', '#111');
-    });
-}
-const validMoves = (piece, row, col) => {
+    showPrompt();
+    console.table(boardArray);
+    console.table(blackPieces);
+    console.table(whitePieces);
+};
+
+// Show prompt when user turn
+const showPrompt = () => {
+    const promptDiv = document.querySelector('.board__prompt');
+    promptDiv.classList.remove('board__prompt__fade');
+    void promptDiv.offsetWidth;
+    promptDiv.textContent = whoseTurn === 'white' ? 'White\'s turn' : 'Black\'s turn';
+    promptDiv.style.visibility = 'visible';
+    promptDiv.classList.add('board__prompt__fade');
+    promptDiv.addEventListener('animationend', () => {
+        promptDiv.classList.remove('board__prompt__fade');
+        promptDiv.style.visibility = 'hidden';
+    }, { once: true });
+};
+
+const getPosition = (pos) => {
+    let x = Number(pos.dataset.column);
+    let y = Number(pos.dataset.row);
+    return [y, x];
+};
+
+const fillMoves = (square) => {
+    let piece = square.firstChild;
+    let pieceType = piece.dataset.type;
+    let pieceColor = piece.dataset.color;
+    let [y, x] = getPosition(square);
     let moves = [];
-    let dir = turn === 'white' ? 1 : -1;
-    // a block for each piece type. should check bounds of board > 0 and < 7 and also detect if a piece is in the way using if instead of switch
-    if (piece === 'pawn') {
-        if (row + dir >= 0 && row + dir <= 7) {
-            moves.push([row + dir, col]);
-            if (row === 1 || row === 6) {
-                moves.push([row + dir * 2, col]);
+    switch (pieceType) {
+        case 'pawn':
+            let direction = pieceColor === 'white' ? -1 : 1;
+            if (y === 6 && pieceColor === 'white' || y === 1 && pieceColor === 'black') {
+                moves.push([y + 2 * direction, x]);
             }
-        }
-    } else if (piece === 'rook') {
-        for (let i = 0; i < 8; i++) {
-            moves.push([row, i]);
-            moves.push([i, col]);
-        }
-    } else if (piece === 'knight') {
-        if (row + 2 >= 0 && row + 2 <= 7 && col + 1 >= 0 && col + 1 <= 7 ) {
-            moves.push([row + 2, col + 1]);
-        }
-        if (row + 2 >= 0 && row + 2 <= 7 && col - 1 >= 0 && col - 1 <= 7) {
-            moves.push([row + 2, col - 1]);
-        }
-        if (row - 2 >= 0 && row - 2 <= 7 && col + 1 >= 0 && col + 1 <= 7) {
-            moves.push([row - 2, col + 1]);
-        }
-        if (row - 2 >= 0 && row - 2 <= 7 && col - 1 >= 0 && col - 1 <= 7) {
-            moves.push([row - 2, col - 1]);
-        }
-        if (row + 1 >= 0 && row + 1 <= 7 && col + 2 >= 0 && col + 2 <= 7) {
-            moves.push([row + 1, col + 2]);
-        }
-        if (row + 1 >= 0 && row + 1 <= 7 && col - 2 >= 0 && col - 2 <= 7) {
-            moves.push([row + 1, col - 2]);
-        }
-        if (row - 1 >= 0 && row - 1 <= 7 && col + 2 >= 0 && col + 2 <= 7) {
-            moves.push([row - 1, col + 2]);
-        }
-        if (row - 1 >= 0 && row - 1 <= 7 && col - 2 >= 0 && col - 2 <= 7) {
-            moves.push([row - 1, col - 2]);
-        }
-    } else if (piece === 'bishop') {
-        for (let i = 0; i < 8; i++) {
-            if (row + i >= 0 && row + i <= 7 && col + i >= 0 && col + i <= 7) {
-                moves.push([row + i, col + i]);
+            moves.push([y - 1, x]);
+            if (document.querySelector(`[data-row="${y + direction}"][data-column="${x - 1}"]`).firstChild 
+            && document.querySelector(`[data-row="${y + direction}"][data-column="${x - 1}"]`).firstChild.dataset.color !== pieceColor) {
+                moves.push([y + direction, x - 1]);
             }
-            if (row + i >= 0 && row + i <= 7 && col - i >= 0 && col - i <= 7) {
-                moves.push([row + i, col - i]);
+            if (document.querySelector(`[data-row="${y + direction}"][data-column="${x + 1}"]`).firstChild 
+            && document.querySelector(`[data-row="${y + direction}"][data-column="${x + 1}"]`).firstChild.dataset.color !== pieceColor) {
+                moves.push([y + direction, x + 1]);
             }
-            if (row - i >= 0 && row - i <= 7 && col + i >= 0 && col + i <= 7) {
-                moves.push([row - i, col + i]);
-            }
-            if (row - i >= 0 && row - i <= 7 && col - i >= 0 && col - i <= 7) {
-                moves.push([row - i, col - i]);
-            }
-        }
-    } else if (piece === 'queen') { 
-        for (let i = 0; i < 8; i++) {
-            moves.push([row, i]);
-            moves.push([i, col]);
-        }
-        for (let i = 0; i < 8; i++) {
-            if (row + i >= 0 && row + i <= 7 && col + i >= 0 && col + i <= 7) {
-                moves.push([row + i, col + i]);
-            }
-            if (row + i >= 0 && row + i <= 7 && col - i >= 0 && col - i <= 7) {
-                moves.push([row + i, col - i]);
-            }
-            if (row - i >= 0 && row - i <= 7 && col + i >= 0 && col + i <= 7) {
-                moves.push([row - i, col + i]);
-            }
-            if (row - i >= 0 && row - i <= 7 && col - i >= 0 && col - i <= 7) {
-                moves.push([row - i, col - i]);
-            }
-        }
-    } else if (piece === 'king') {
-        if (row + 1 >= 0 && row + 1 <= 7) {
-            moves.push([row + 1, col]);
-        }
-        if (row - 1 >= 0 && row - 1 <= 7) {
-            moves.push([row - 1, col]);
-        }
-        if (col + 1 >= 0 && col + 1 <= 7) {
-            moves.push([row, col + 1]);
-        }
-        if (col - 1 >= 0 && col - 1 <= 7) {
-            moves.push([row, col - 1]);
-        }
-        if (row + 1 >= 0 && row + 1 <= 7 && col + 1 >= 0 && col + 1 <= 7) {
-            moves.push([row + 1, col + 1]);
-        }
-        if (row + 1 >= 0 && row + 1 <= 7 && col - 1 >= 0 && col - 1 <= 7) {
-            moves.push([row + 1, col - 1]);
-        }
-        if (row - 1 >= 0 && row - 1 <= 7 && col + 1 >= 0 && col + 1 <= 7) {
-            moves.push([row - 1, col + 1]);
-        }
-        if (row - 1 >= 0 && row - 1 <= 7 && col - 1 >= 0 && col - 1 <= 7) {
-            moves.push([row - 1, col - 1]);
-        }
+            break;
+        case 'rook':
+            break;
+        case 'knight':
+            break;
+        case 'bishop':
+            break;
+        case 'queen':
+            break;
+        case 'king':
+            break;
     }
-    console.log(moves)
-    return moves;
-}
+    return JSON.stringify(moves);
+};
 
-const highlightMoves = (cell) => {
-    const row = cell.dataset.row;
-    const col = cell.dataset.col;
-    const piece = cell.firstElementChild.dataset.type;
-    let moves = [];
-    
-    moves = validMoves(piece, parseInt(row), parseInt(col));
+const movePiece = (from, to) => {
+    let pieceElement = from.firstChild;
+    if (pieceElement) {
+        to.appendChild(pieceElement);
+    }
+    whoseTurn = whoseTurn === 'white' ? 'black' : 'white';
+};
 
-    console.log(moves);
+const handleUserTurn = (event) => {
+    if (whoseTurn === 'black') return;
+    let square = event.target.closest('.square');
+    if (!square) return;
 
-    moves.forEach((move) => {
-        let cell = document.querySelector(`.cell[data-row='${move[0]}'][data-col='${move[1]}']`);
-        console.log(cell);
-        cell.classList.add('highlight');
+    // If the square has a piece and it's the user's turn
+    if (!moveFrom && square.firstChild && square.firstChild.dataset.color === whoseTurn) {
+        square.firstChild.dataset.moves = fillMoves(square);
+        moveFrom = square;
+        highlight(square);
+    } else {
+        moveTo = square;
+        const moves = JSON.parse(moveFrom.firstChild.dataset.moves);
+        const position = [Number(moveTo.dataset.row), Number(moveTo.dataset.column)];
+        if (moves.some(array => array[0] === position[0] && array[1] === position[1])) {
+            movePiece(moveFrom, moveTo);
+            setTimeout(ai, 300);
+        }
+        moveFrom = null;
+        moveTo = null;
+        clearHighlights();
+        showPrompt();
+    }
+};
+const highlight = (square) => {
+    square.classList.add('board__square--highlight');
+};
+
+const clearHighlights = () => {
+    document.querySelectorAll('.board__square--highlight').forEach(square => {
+        square.classList.remove('board__square--highlight');
     });
 }
-const removeHightlights = () => {
-    const highlighted = document.querySelectorAll('.highlight');
-    highlighted.forEach((cell) => {
-        cell.classList.remove('highlight');
-    });
-}   
 
-const cellClick = (e) => {                                          
-    let cell = e.currentTarget;
+board.addEventListener('click', handleUserTurn);
 
-    removeHightlights();
-
-    if (cell.firstElementChild && cell.firstElementChild.dataset.type != undefined) {
-        highlightMoves(cell);
-    }
-}
-
-drawBoard(board);
-placePieces();
-message.innerHTML = `White moves First`;
+// Initialize the board
+fillBoard();
